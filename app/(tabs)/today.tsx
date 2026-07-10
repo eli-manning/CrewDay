@@ -13,7 +13,7 @@ import { useDayData } from '../../hooks/useDayData';
 import { useCustomTasks } from '../../hooks/useCustomTasks';
 import { useUserCrews } from '../../hooks/useUserCrews';
 import { useMinDuration } from '../../hooks/useMinDuration';
-import { getUserProfile, getAllUsers, getPendingRequests, getDayEntry, getDayHistory, updateUserProfile, updateDayEntryWithPoints, updateStreakOnProfile, subscribeToProfile } from '../../lib/firestore';
+import { getUserProfile, getAllUsers, getPendingRequests, getDayEntry, getDayHistory, updateUserProfile, updateDayEntryWithPoints, updateStreakOnProfile, subscribeToProfile, defaultDayEntry } from '../../lib/firestore';
 import { getCached, setCached, getSessionCached, setSessionCached, clearAll } from '../../lib/cache';
 import { getCrewIconIon } from '../../lib/crews';
 import { UserProfile, DayEntry } from '../../lib/types';
@@ -333,8 +333,9 @@ function TodayInner({ currentUser, onProfileUpdate }: { currentUser: UserProfile
     if (yesterday < currentUser.challengeStartDate) return;
     getDayEntry(activeUid, yesterday)
       .then((entry) => {
-        if (entry && !entry.allCoreCompleted) {
-          setYesterdayEntry(entry);
+        if (!entry || !entry.allCoreCompleted) {
+          const fallback = entry ?? (defaultDayEntry(activeUid, yesterday, currentUser.challengeStartDate) as DayEntry);
+          setYesterdayEntry(fallback);
           setShowMissedDay(true);
           updateUserProfile(activeUid, { missedDayPromptShownDate: yesterday }).catch(() => {});
           onProfileUpdate({ ...currentUser, missedDayPromptShownDate: yesterday });
