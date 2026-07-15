@@ -5,7 +5,7 @@ import {
 import Svg, { Line, Rect, Path, Circle, Text as SvgText } from 'react-native-svg';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval, getDay,
-  parseISO, isToday, isFuture, subDays,
+  parseISO, isToday, isFuture, subDays, addDays,
 } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
@@ -483,6 +483,9 @@ function HistoryInner({ currentUser }: { currentUser: UserProfile }) {
     ? { current: viewProfile.currentStreak ?? 0, longest: viewProfile.longestStreak ?? 0 }
     : computeStreakFromHistory(history);
   const startDate = viewProfile?.challengeStartDate ?? null;
+  const finishDateStr = startDate && viewProfile?.challengeMode !== 'general'
+    ? format(addDays(parseISO(startDate), 74), 'yyyy-MM-dd')
+    : null;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.bg }]}>
@@ -557,6 +560,9 @@ function HistoryInner({ currentUser }: { currentUser: UserProfile }) {
                     ]}
                   >
                     <Text style={[styles.calendarDayNum, { color: theme.text }]}>{day.getDate()}</Text>
+                    {dateStr === finishDateStr && (
+                      <Ionicons name="star" size={12} color={theme.accent} style={styles.calendarFinishStar} />
+                    )}
                   </View>
                 );
               });
@@ -650,8 +656,10 @@ const styles = StyleSheet.create({
     flex: 1, aspectRatio: 1,
     borderWidth: 1,
     alignItems: 'center', justifyContent: 'center',
+    position: 'relative',
   },
   calendarDayNum: { fontFamily: fonts.interSemiBold, fontSize: 12, textAlign: 'center' },
+  calendarFinishStar: { position: 'absolute', top: 1, right: 1 },
   calendarLegend: { flexDirection: 'row', gap: 12, marginTop: 12, flexWrap: 'wrap' },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   legendTile: { width: 12, height: 12, borderWidth: 2 },
