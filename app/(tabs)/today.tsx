@@ -14,6 +14,7 @@ import { useCustomTasks } from '../../hooks/useCustomTasks';
 import { useUserCrews } from '../../hooks/useUserCrews';
 import { useMinDuration } from '../../hooks/useMinDuration';
 import { getUserProfile, getAllUsers, getPendingRequests, getDayEntry, getDayHistory, updateUserProfile, updateDayEntryWithPoints, updateStreakOnProfile, subscribeToProfile, defaultDayEntry } from '../../lib/firestore';
+import { signOut } from '../../lib/auth';
 import { getCached, setCached, getSessionCached, setSessionCached, clearAll } from '../../lib/cache';
 import { getCrewIconIon } from '../../lib/crews';
 import { UserProfile, DayEntry } from '../../lib/types';
@@ -816,6 +817,12 @@ export default function TodayPage() {
       {error ? (
         <View style={styles.errorScreen}>
           <Text style={styles.errorScreenText}>Failed to load profile. Check your connection.</Text>
+          <TouchableOpacity
+            style={styles.errorSignOutBtn}
+            onPress={() => { signOut().then(() => router.replace('/login')); }}
+          >
+            <Text style={styles.errorSignOutText}>SIGN OUT</Text>
+          </TouchableOpacity>
         </View>
       ) : profile && !showLoader ? (
         <TodayInner
@@ -909,6 +916,8 @@ const styles = StyleSheet.create({
   skeletonTask: { height: 52, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.surface },
   errorScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: colors.bg },
   errorScreenText: { fontFamily: fonts.vt323, fontSize: 22, color: colors.red, textAlign: 'center', lineHeight: 32 },
+  errorSignOutBtn: { marginTop: 20, borderWidth: 2, borderColor: colors.accent, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 20 },
+  errorSignOutText: { fontFamily: fonts.pixel, fontSize: 10, color: colors.accent },
 
   // Day complete banner
   summaryBanner: {
