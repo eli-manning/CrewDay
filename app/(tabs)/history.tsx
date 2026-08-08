@@ -484,7 +484,7 @@ function HistoryInner({ currentUser }: { currentUser: UserProfile }) {
     : computeStreakFromHistory(history);
   const startDate = viewProfile?.challengeStartDate ?? null;
   const finishDateStr = startDate && viewProfile?.challengeMode !== 'general'
-    ? format(addDays(parseISO(startDate), 74), 'yyyy-MM-dd')
+    ? format(addDays(parseISO(startDate), 79), 'yyyy-MM-dd')
     : null;
 
   return (
