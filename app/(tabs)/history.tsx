@@ -10,13 +10,15 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import { useAllUsers } from '../../hooks/useAllUsers';
-import { getDayHistory, getUserProfile } from '../../lib/firestore';
+import { useCustomTasks } from '../../hooks/useCustomTasks';
+import { getDayHistory, getUserProfile, editDayEntry } from '../../lib/firestore';
 import { computeStreakFromHistory } from '../../lib/points';
 import { DayEntry, UserProfile } from '../../lib/types';
 import { getSessionCached } from '../../lib/cache';
 import { fonts } from '../../lib/theme';
 import { useTheme } from '../../context/ThemeContext';
 import { LoadingScreen } from '../../components/LoadingScreen';
+import { DayEditModal } from '../../components/DayEditModal';
 import { useHideNavWhileLoading } from '../../context/NavVisibilityContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -458,10 +460,16 @@ function HistoryInner({ currentUser }: { currentUser: UserProfile }) {
   const [viewUid, setViewUid] = useState(currentUser.uid);
   const [history, setHistory] = useState<DayEntry[]>([]);
   const [month, setMonth] = useState(new Date());
+  const [profileOverride, setProfileOverride] = useState<UserProfile | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [dayModalVisible, setDayModalVisible] = useState(false);
+  const [savingDay, setSavingDay] = useState(false);
+  const { tasks: customTasks } = useCustomTasks(viewUid === currentUser.uid ? viewUid : null);
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
     setHistory([]);
+    setProfileOverride(null);
     getDayHistory(viewUid, 120).then(setHistory).catch(() => {});
   }, [viewUid]);
 
@@ -478,7 +486,26 @@ function HistoryInner({ currentUser }: { currentUser: UserProfile }) {
     return !isFuture(parseISO(e.date));
   }).length;
 
-  const viewProfile = users.find((u) => u.uid === viewUid);
+  const viewProfile = profileOverride ?? users.find((u) => u.uid === viewUid);
+  const isOwnView = viewUid === currentUser.uid;
+
+  async function handleDaySave(patch: Partial<DayEntry>) {
+    if (!selectedDate || !viewProfile || !isOwnView) return;
+    setSavingDay(true);
+    try {
+      await editDayEntry(viewUid, selectedDate, patch, viewProfile, customTasks);
+      const [freshHistory, freshProfile] = await Promise.all([
+        getDayHistory(viewUid, 120),
+        getUserProfile(viewUid),
+      ]);
+      setHistory(freshHistory);
+      if (freshProfile) setProfileOverride(freshProfile);
+      setDayModalVisible(false);
+    } finally {
+      setSavingDay(false);
+    }
+  }
+
   const { current: currentStreak, longest } = viewProfile
     ? { current: viewProfile.currentStreak ?? 0, longest: viewProfile.longestStreak ?? 0 }
     : computeStreakFromHistory(history);
@@ -551,9 +578,12 @@ function HistoryInner({ currentUser }: { currentUser: UserProfile }) {
               days.forEach((day) => {
                 const dateStr = format(day, 'yyyy-MM-dd');
                 const entry = entryMap.get(dateStr);
+                const selectable = !isFuture(day) || isToday(day);
                 allCells.push(
-                  <View
+                  <TouchableOpacity
                     key={dateStr}
+                    disabled={!selectable}
+                    onPress={() => { setSelectedDate(dateStr); setDayModalVisible(true); }}
                     style={[
                       styles.calendarCell,
                       { backgroundColor: tileColor(entry, day, startDate, theme), borderColor: tileBorder(entry, day, startDate, theme) },
@@ -563,7 +593,7 @@ function HistoryInner({ currentUser }: { currentUser: UserProfile }) {
                     {dateStr === finishDateStr && (
                       <Ionicons name="star" size={12} color={theme.accent} style={styles.calendarFinishStar} />
                     )}
-                  </View>
+                  </TouchableOpacity>
                 );
               });
               const remainder = allCells.length % 7;
@@ -615,6 +645,19 @@ function HistoryInner({ currentUser }: { currentUser: UserProfile }) {
 
         <InsightsDashboard history={history} viewProfile={viewProfile} />
       </ScrollView>
+
+      {viewProfile && selectedDate && (
+        <DayEditModal
+          visible={dayModalVisible}
+          date={selectedDate}
+          entry={entryMap.get(selectedDate)}
+          profile={viewProfile}
+          readOnly={!isOwnView}
+          saving={savingDay}
+          onSave={handleDaySave}
+          onClose={() => setDayModalVisible(false)}
+        />
+      )}
     </View>
   );
 }
