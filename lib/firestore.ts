@@ -295,6 +295,28 @@ export async function updateDayEntryWithPoints(
   invalidateHistory(uid);
 }
 
+// Edits an arbitrary (usually past) day entry, recomputing allCoreCompleted,
+// dailyPoints, and the user's streak — used by the History page's day editor
+// so backfilled days behave exactly like a same-day edit would have.
+export async function editDayEntry(
+  uid: string,
+  date: string,
+  patch: Partial<DayEntry>,
+  profile: UserProfile,
+  customTasks: CustomTask[]
+): Promise<void> {
+  const existing = (await getDayEntry(uid, date)) ?? {
+    ...defaultDayEntry(uid, date, profile.challengeStartDate),
+    updatedAt: Timestamp.now(),
+  };
+  const merged: DayEntry = { ...existing, ...patch };
+  const allCoreCompleted = computeAllCoreCompleted(merged, profile);
+  const dailyPoints = computeDayPoints({ ...merged, allCoreCompleted }, customTasks, profile);
+  const delta = dailyPoints - (existing.dailyPoints ?? 0);
+  await updateDayEntryWithPoints(uid, date, { ...patch, allCoreCompleted, dailyPoints }, delta);
+  await updateStreakOnProfile(uid, profile.challengeStartDate);
+}
+
 export async function getDayHistory(
   uid: string,
   limitCount = 90
